@@ -26,6 +26,12 @@ TERRAIN_SCALE = 0.8      # Horizontal scale
 MOVE_SPEED = 1.2
 MOUSE_SENSITIVITY = 0.06
 
+# Projectile settings
+BULLET_SPEED = 3.0
+BULLET_LIFETIME = 10.0   # seconds before bullet disappears
+EXPLOSION_RADIUS = 15    # radius in terrain grid cells (bigger!)
+FIRE_RATE = 0.33         # 3 bullets per second
+
 class Camera:
     def __init__(self):
         self.x = 0
@@ -95,6 +101,167 @@ class Camera:
         cx = int(self.x / chunk_world_size)
         cz = int(self.z / chunk_world_size)
         return (cx, cz)
+    
+    def get_forward_vector(self):
+        """Get the direction we're facing as a unit vector"""
+        yaw_rad = math.radians(self.yaw)
+        pitch_rad = math.radians(self.pitch)
+        
+        fx = -math.sin(yaw_rad) * math.cos(pitch_rad)
+        fy = math.sin(pitch_rad)
+        fz = -math.cos(yaw_rad) * math.cos(pitch_rad)
+        
+        return (fx, fy, fz)
+
+
+class Projectile:
+    def __init__(self, x, y, z, dx, dy, dz):
+        self.x = x
+        self.y = y
+        self.z = z
+        self.dx = dx * BULLET_SPEED
+        self.dy = dy * BULLET_SPEED
+        self.dz = dz * BULLET_SPEED
+        self.lifetime = BULLET_LIFETIME
+        self.active = True
+    
+    def update(self, dt, heightmap, terrain_scale, height_scale):
+        """Update projectile position and check for collision"""
+        if not self.active:
+            return None
+        
+        # Move projectile
+        self.x += self.dx * dt
+        self.y += self.dy * dt
+        self.z += self.dz * dt
+        self.lifetime -= dt / 60.0  # dt is frame-normalized
+        
+        # Check lifetime
+        if self.lifetime <= 0:
+            self.active = False
+            return None
+        
+        # Check collision with terrain
+        h, w = heightmap.shape
+        
+        # Convert world position to heightmap coordinates
+        map_x = int(self.x / terrain_scale + w / 2)
+        map_z = int(self.z / terrain_scale + h / 2)
+        
+        # Check bounds
+        if 0 <= map_x < w and 0 <= map_z < h:
+            terrain_height = heightmap[map_z, map_x] * height_scale
+            
+            # Collision if bullet is at or below terrain
+            if self.y <= terrain_height:
+                self.active = False
+                return (self.x, self.y, self.z, map_x, map_z)
+        
+        # Check if way out of bounds or below water
+        if self.y < -50 or abs(self.x) > w * terrain_scale or abs(self.z) > h * terrain_scale:
+            self.active = False
+            return None
+        
+        return None
+    
+    def draw(self):
+        """Draw the projectile as a bright sphere"""
+        if not self.active:
+            return
+        
+        glPushMatrix()
+        glTranslatef(self.x, self.y, self.z)
+        
+        # Bright yellow/orange bullet
+        glDisable(GL_LIGHTING)
+        glColor3f(1.0, 0.8, 0.2)
+        
+        # Draw as a simple point/sphere
+        quadric = gluNewQuadric()
+        gluSphere(quadric, 0.5, 8, 8)
+        gluDeleteQuadric(quadric)
+        
+        glEnable(GL_LIGHTING)
+        glPopMatrix()
+
+
+class Explosion:
+    def __init__(self, x, y, z):
+        self.x = x
+        self.y = y
+        self.z = z
+        self.lifetime = 2.5  # 2.5 second explosion animation (longer!)
+        self.max_lifetime = 2.5
+        self.active = True
+    
+    def update(self, dt):
+        if not self.active:
+            return
+        self.lifetime -= dt / 60.0
+        if self.lifetime <= 0:
+            self.active = False
+    
+    def draw(self):
+        if not self.active:
+            return
+        
+        # Explosion grows then fades
+        progress = 1.0 - (self.lifetime / self.max_lifetime)
+        size = EXPLOSION_RADIUS * TERRAIN_SCALE * (0.8 + progress * 2.0)  # Bigger!
+        alpha = 1.0 - progress * 0.8  # Fade slower
+        
+        glPushMatrix()
+        glTranslatef(self.x, self.y, self.z)
+        
+        glDisable(GL_LIGHTING)
+        glEnable(GL_BLEND)
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE)  # Additive blending for glow
+        
+        # Draw multiple expanding rings (more rings!)
+        for i in range(5):
+            ring_progress = (progress + i * 0.12) % 1.0
+            ring_size = size * (0.2 + ring_progress * 0.8)
+            ring_alpha = alpha * (1.0 - ring_progress * 0.9)
+            
+            # Color transitions from white/yellow core to orange to red
+            if ring_progress < 0.3:
+                r, g, b = 1.0, 1.0, 0.8  # White/yellow core
+            elif ring_progress < 0.6:
+                r, g, b = 1.0, 0.6, 0.2  # Orange
+            else:
+                r, g, b = 1.0, 0.3, 0.1  # Red outer
+            
+            glColor4f(r, g, b, ring_alpha * 0.6)
+            
+            # Draw ring as a filled circle
+            glBegin(GL_TRIANGLE_FAN)
+            glVertex3f(0, ring_size * 0.2, 0)  # Raised center
+            segments = 24
+            for j in range(segments + 1):
+                angle = 2 * math.pi * j / segments
+                # More spherical shape
+                glVertex3f(math.cos(angle) * ring_size, 
+                          math.sin(angle * 2) * ring_size * 0.4,
+                          math.sin(angle) * ring_size)
+            glEnd()
+        
+        # Add bright core flash at start
+        if progress < 0.3:
+            core_alpha = (0.3 - progress) / 0.3
+            glColor4f(1, 1, 1, core_alpha * 0.8)
+            core_size = size * 0.4
+            glBegin(GL_TRIANGLE_FAN)
+            glVertex3f(0, 0, 0)
+            for j in range(17):
+                angle = 2 * math.pi * j / 16
+                glVertex3f(math.cos(angle) * core_size, 
+                          math.sin(angle) * core_size * 0.5,
+                          math.sin(angle) * core_size)
+            glEnd()
+        
+        glDisable(GL_BLEND)
+        glEnable(GL_LIGHTING)
+        glPopMatrix()
 
 
 class ChunkManager:
@@ -236,6 +403,62 @@ class ChunkManager:
         """Render all loaded chunks"""
         for chunk_list in self.chunks.values():
             glCallList(chunk_list)
+    
+    def create_crater(self, map_x, map_z, radius):
+        """Create a crater in the terrain at the given heightmap coordinates"""
+        import random
+        
+        # Modify heightmap in a spherical pattern with noise
+        affected_chunks = set()
+        
+        for dz in range(-radius - 2, radius + 3):
+            for dx in range(-radius - 2, radius + 3):
+                x = map_x + dx
+                z = map_z + dz
+                
+                # Check bounds
+                if 0 <= x < self.width and 0 <= z < self.height:
+                    # Distance from center
+                    dist = math.sqrt(dx * dx + dz * dz)
+                    
+                    if dist < radius + 1:
+                        # Spherical crater shape with noise
+                        noise = random.uniform(0.6, 1.4)
+                        
+                        # Crater depth falls off from center (bigger craters!)
+                        if dist < radius * 0.3:
+                            # Deep center
+                            depth = 3.5 * noise
+                        elif dist < radius * 0.7:
+                            # Main crater bowl
+                            t = (dist - radius * 0.3) / (radius * 0.4)
+                            depth = 3.5 * (1 - t * t) * noise
+                        else:
+                            # Crater rim (slight raise then fall)
+                            t = (dist - radius * 0.7) / (radius * 0.3 + 1)
+                            depth = 0.8 * (1 - t) * noise
+                        
+                        # Lower the terrain
+                        self.heightmap[z, x] -= depth
+                        
+                        # Track which chunks need regeneration
+                        chunk_x = (x - self.width // 2) // CHUNK_SIZE
+                        chunk_z = (z - self.height // 2) // CHUNK_SIZE
+                        affected_chunks.add((chunk_x, chunk_z))
+        
+        # Regenerate affected chunks
+        for chunk_pos in affected_chunks:
+            if chunk_pos in self.chunks:
+                # Delete old chunk
+                glDeleteLists(self.chunks[chunk_pos], 1)
+                del self.chunks[chunk_pos]
+                
+                # Create new chunk with updated terrain
+                new_chunk = self.create_chunk(*chunk_pos)
+                if new_chunk:
+                    self.chunks[chunk_pos] = new_chunk
+        
+        return len(affected_chunks)
 
 
 def create_water_plane():
@@ -529,28 +752,27 @@ def main():
     camera.y = center_height * HEIGHT_SCALE + 30
     
     print("\n" + "="*60)
-    print("  TERRAIN EXPLORER - JET FLIGHT MODE")
+    print("  TERRAIN EXPLORER - DESTRUCTIBLE WORLD")
     print("="*60)
-    print("  LEFT STICK (Movement):")
-    print("    W / ↑    - Fly forward (in facing direction)")
+    print("  MOVEMENT:")
+    print("    W / ↑    - Fly forward")
     print("    S / ↓    - Fly backward")
     print("    A / ←    - Strafe left")
     print("    D / →    - Strafe right")
-    print("    Space    - Fly UP (relative to orientation)")
-    print("    C/X/Z    - Fly DOWN")
+    print("    H        - Fly UP")
+    print("    F        - Fly DOWN")
     print()
-    print("  RIGHT STICK (Camera):")
-    print("    I        - Pitch UP (do loops!)")
-    print("    K        - Pitch DOWN")
-    print("    J        - Look LEFT")
-    print("    L        - Look RIGHT")
-    print("    (or Q/E/R/F as alternative)")
+    print("  CAMERA (Right Stick):")
+    print("    I / K    - Pitch UP / DOWN (do loops!)")
+    print("    J / L    - Look LEFT / RIGHT")
+    print("    Mouse    - Hold Right-Click to look")
     print()
-    print("  Mouse: Hold Right-Click to look around")
+    print("  WEAPONS:")
+    print("    SPACE    - Fire projectile!")
+    print("    L-Click  - Fire projectile (alt)")
+    print("    (1 shot per second, destroys terrain!)")
+    print()
     print("  Alt: Move faster | ESC: Exit")
-    print()
-    print("  TIP: Hold I to do a full loop like a jet!")
-    print("  Minimap in top-left shows your position (red square)")
     print("="*60 + "\n")
     
     clock = pygame.time.Clock()
@@ -558,9 +780,15 @@ def main():
     mouse_look = False
     last_chunk = None
     
+    # Projectile and explosion tracking
+    projectiles = []
+    explosions = []
+    last_fire_time = 0
+    
     while running:
         dt = clock.tick(60) / 16.67
         fps = clock.get_fps()
+        current_time = pygame.time.get_ticks() / 1000.0
         
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -568,11 +796,40 @@ def main():
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
                     running = False
+                # Fire projectile with Space
+                elif event.key == pygame.K_SPACE:
+                    if current_time - last_fire_time >= FIRE_RATE:
+                        # Get firing direction
+                        fx, fy, fz = camera.get_forward_vector()
+                        
+                        # Spawn bullet slightly in front of camera
+                        bullet = Projectile(
+                            camera.x + fx * 2,
+                            camera.y + fy * 2,
+                            camera.z + fz * 2,
+                            fx, fy, fz
+                        )
+                        projectiles.append(bullet)
+                        last_fire_time = current_time
+                        
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 if event.button == 3:
                     mouse_look = True
                     pygame.mouse.set_visible(False)
                     pygame.event.set_grab(True)
+                # Also fire with left click
+                elif event.button == 1:
+                    if current_time - last_fire_time >= FIRE_RATE:
+                        fx, fy, fz = camera.get_forward_vector()
+                        bullet = Projectile(
+                            camera.x + fx * 2,
+                            camera.y + fy * 2,
+                            camera.z + fz * 2,
+                            fx, fy, fz
+                        )
+                        projectiles.append(bullet)
+                        last_fire_time = current_time
+                        
             elif event.type == pygame.MOUSEBUTTONUP:
                 if event.button == 3:
                     mouse_look = False
@@ -599,9 +856,9 @@ def main():
         if keys[pygame.K_LEFT]: right -= dt * speed
         if keys[pygame.K_RIGHT]: right += dt * speed
         
-        # Up/Down flight
-        if keys[pygame.K_SPACE]: up += dt * speed
-        if keys[pygame.K_c] or keys[pygame.K_x] or keys[pygame.K_z]: up -= dt * speed
+        # Up/Down flight (H = up, F = down)
+        if keys[pygame.K_h]: up += dt * speed
+        if keys[pygame.K_f]: up -= dt * speed
         
         # === RIGHT STICK: Camera Look (IJKL or Q/E/R/F) ===
         look_speed = dt * 0.8  # Smooth control
@@ -627,6 +884,29 @@ def main():
             chunk_manager.update_chunks(current_chunk)
             last_chunk = current_chunk
         
+        # Update projectiles
+        for proj in projectiles[:]:  # Copy list to allow removal
+            collision = proj.update(dt, heights, TERRAIN_SCALE, HEIGHT_SCALE)
+            if collision:
+                # Create explosion at impact point
+                wx, wy, wz, map_x, map_z = collision
+                explosions.append(Explosion(wx, wy, wz))
+                
+                # Create crater in terrain
+                chunk_manager.create_crater(map_x, map_z, EXPLOSION_RADIUS)
+                
+                # Update minimap (recreate texture with new terrain)
+                minimap.create_texture(heights)
+            
+            if not proj.active:
+                projectiles.remove(proj)
+        
+        # Update explosions
+        for exp in explosions[:]:
+            exp.update(dt)
+            if not exp.active:
+                explosions.remove(exp)
+        
         # Render
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
         glLoadIdentity()
@@ -634,6 +914,15 @@ def main():
         
         chunk_manager.render()
         glCallList(water_list)
+        
+        # Draw projectiles
+        for proj in projectiles:
+            proj.draw()
+        
+        # Draw explosions
+        for exp in explosions:
+            exp.draw()
+        
         draw_crosshair(display)
         
         # Draw minimap with player position
