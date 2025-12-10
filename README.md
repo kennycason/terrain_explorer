@@ -1,15 +1,49 @@
 # 🌍 Terrain Explorer
 
-<img src="screenshot.png" alt="Terrain Explorer Screenshot" width="100%">
+## 📸 Screenshots
+
+| Normalized (Smooth) | Original | Psychedelic 🌈 |
+|:---:|:---:|:---:|
+| <img src="screenshot_normalized.png" width="100%"> | <img src="screenshot.png" width="100%"> | <img src="screenshot_psychedelic.png" width="100%"> |
+
+---
 
 ### 🎬 Demo Videos
 
-| Flight & Exploration | Destructible Terrain |
-|:---:|:---:|
-| [▶️ Watch Flight Demo](andrew_maps_03.mp4) | [▶️ Watch Bullets Demo](andrew_maps_04_bullets.mp4) |
+| Flight | Destructible Terrain | Normalized |
+|:---:|:---:|:---:|
+| [▶️ Flight Demo](andrew_maps_03.mp4) | [▶️ Bullets Demo](andrew_maps_04_bullets.mp4) | [▶️ Normalized Demo](andrew_maps_07_normalized.mp4) |
 
-<video src="andrew_maps_03.mp4" width="49%" controls></video>
-<video src="andrew_maps_04_bullets.mp4" width="49%" controls></video>
+<video src="andrew_maps_03.mp4" width="32%" controls></video>
+<video src="andrew_maps_04_bullets.mp4" width="32%" controls></video>
+<video src="andrew_maps_07_normalized.mp4" width="32%" controls></video>
+
+---
+
+## 🌈 PSYCHEDELIC MODE 🌈
+
+| 🍄 Psychedelic | 🍄 Psychedelic Normalized |
+|:---:|:---:|
+| [▶️ Watch Psychedelic](andrew_maps_05_psychedelic.mp4) | [▶️ Watch Psychedelic Normalized](andrew_maps_06_psychedelic_normalized.mp4) |
+
+<video src="andrew_maps_05_psychedelic.mp4" width="49%" controls></video>
+<video src="andrew_maps_06_psychedelic_normalized.mp4" width="49%" controls></video>
+
+Run the psychedelic version for a **trippy experience**:
+```bash
+python terrain_explorer_psychedelic.py
+```
+
+**Features:**
+- 🎨 Rainbow terrain colors that shift over time
+- 🌅 Cycling sky & fog colors
+- 💫 Vertical breathing terrain (pulses up/down)
+- 🦠 **Fractal cancer growth** - terrain permanently morphs with spreading tendrils!
+- 🌈 Rainbow projectiles with trails
+- 💥 Psychedelic explosions with sparkles
+- ✨ Everything cycles through the color spectrum
+
+---
 
 A 3D terrain explorer with **dynamic chunk loading**, **jet flight physics**, and **destructible terrain**. Built with Python, Pygame, and OpenGL.
 
@@ -95,7 +129,7 @@ Adjust these values in `terrain_explorer.py`:
 ```python
 CHUNK_SIZE = 64           # Size of each terrain chunk
 CHUNK_RENDER_DISTANCE = 3 # How many chunks to render
-HEIGHT_SCALE = 5.0        # Vertical exaggeration
+HEIGHT_SCALE = 3.5        # Vertical exaggeration (smoothed)
 TERRAIN_SCALE = 0.8       # Horizontal scale
 EXPLOSION_RADIUS = 15     # Crater size
 FIRE_RATE = 0.33          # Shots per second (3)
@@ -104,9 +138,12 @@ FIRE_RATE = 0.33          # Shots per second (3)
 ## 📁 Files
 
 - `terrain_explorer.py` - Main application
+- `terrain_explorer_psychedelic.py` - 🌈 Trippy version!
 - `raw_map_*.npy` - Raw heightmap data
 - `requirements.txt` - Python dependencies
-- `screenshot.png` - Preview image
+- `screenshot.png` - Original preview
+- `screenshot_normalized.png` - Smoothed terrain preview
+- `screenshot_psychedelic.png` - Psychedelic preview
 
 ## 🎯 Tips
 

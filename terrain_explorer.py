@@ -21,7 +21,7 @@ import math
 # Configuration
 CHUNK_SIZE = 64          # Size of each chunk in grid cells
 CHUNK_RENDER_DISTANCE = 3  # How many chunks to render around player
-HEIGHT_SCALE = 5.0       # Vertical scale (adjusted for smoother terrain)
+HEIGHT_SCALE = 3.5       # Vertical scale (reduced for smoother terrain)
 TERRAIN_SCALE = 0.8      # Horizontal scale
 MOVE_SPEED = 1.2
 MOUSE_SENSITIVITY = 0.06
@@ -708,7 +708,18 @@ def setup_opengl():
     glFogf(GL_FOG_END, 350)
 
 
-def load_heightmap(filename):
+def smooth_heightmap(data, iterations=2, kernel_size=3):
+    """Apply smoothing to reduce spikiness"""
+    from scipy.ndimage import uniform_filter
+    
+    smoothed = data.copy()
+    for _ in range(iterations):
+        smoothed = uniform_filter(smoothed, size=kernel_size, mode='nearest')
+    
+    return smoothed
+
+
+def load_heightmap(filename, smooth=True):
     """Load the raw .npy height map at full resolution"""
     print("Loading heightmap...")
     data = np.load(filename)
@@ -718,6 +729,11 @@ def load_heightmap(filename):
     
     print(f"  Shape: {data.shape}")
     print(f"  Range: {data.min():.2f} to {data.max():.2f}")
+    
+    if smooth:
+        print("  Applying smoothing to reduce spikiness...")
+        data = smooth_heightmap(data, iterations=2, kernel_size=3)
+        print(f"  Smoothed range: {data.min():.2f} to {data.max():.2f}")
     
     return data.astype(np.float32)
 
