@@ -2,6 +2,15 @@
 
 <img src="screenshot.png" alt="Terrain Explorer Screenshot" width="100%">
 
+### 🎬 Demo Videos
+
+| Flight & Exploration | Destructible Terrain |
+|:---:|:---:|
+| [▶️ Watch Flight Demo](andrew_maps_03.mp4) | [▶️ Watch Bullets Demo](andrew_maps_04_bullets.mp4) |
+
+<video src="andrew_maps_03.mp4" width="49%" controls></video>
+<video src="andrew_maps_04_bullets.mp4" width="49%" controls></video>
+
 A 3D terrain explorer with **dynamic chunk loading**, **jet flight physics**, and **destructible terrain**. Built with Python, Pygame, and OpenGL.
 
 ## ✨ Features
