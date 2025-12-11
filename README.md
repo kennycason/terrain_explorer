@@ -45,6 +45,26 @@ python terrain_explorer_psychedelic.py
 
 ---
 
+## 🧠 GAN GENERATOR MODE
+
+Integrate with Andrew's terrain generator to create **infinite unique maps**!
+
+```bash
+# Requires PyTorch + the generator model
+pip install torch
+
+# Place generator_v1.pt in runs/models/ or current directory
+python terrain_explorer_generator.py
+```
+
+**Controls:**
+- **G** = Generate a NEW random map!
+- All other controls same as normal mode
+
+The generator creates procedural heightmaps using a trained GAN model. Each press of G creates a completely new world to explore!
+
+---
+
 A 3D terrain explorer with **dynamic chunk loading**, **jet flight physics**, and **destructible terrain**. Built with Python, Pygame, and OpenGL.
 
 ## ✨ Features
@@ -139,6 +159,8 @@ FIRE_RATE = 0.33          # Shots per second (3)
 
 - `terrain_explorer.py` - Main application
 - `terrain_explorer_psychedelic.py` - 🌈 Trippy version!
+- `terrain_explorer_generator.py` - 🧠 GAN generator integration!
+- `demo.py` - Andrew's Gradio generator UI
 - `raw_map_*.npy` - Raw heightmap data
 - `requirements.txt` - Python dependencies
 - `screenshot.png` - Original preview

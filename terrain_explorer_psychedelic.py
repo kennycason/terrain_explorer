@@ -72,6 +72,11 @@ def get_psychedelic_color(base_hue, t, saturation=0.8, value=0.9):
     return hsv_to_rgb(hue, saturation, value)
 
 
+# Player height above terrain when walking
+PLAYER_HEIGHT = 3.0
+WALK_SMOOTH_SPEED = 0.15
+
+
 class Camera:
     def __init__(self):
         self.x = 0
@@ -79,6 +84,8 @@ class Camera:
         self.z = 0
         self.yaw = 0
         self.pitch = -20
+        self.flying = True  # Start in fly mode
+        self.target_y = 40  # For smooth walking
         
     def rotate(self, dx, dy):
         self.yaw += dx * MOUSE_SENSITIVITY
@@ -95,25 +102,73 @@ class Camera:
             self.pitch -= 360
         while self.pitch < -180:
             self.pitch += 360
+    
+    def get_terrain_height(self, heightmap, terrain_scale, height_scale):
+        """Get terrain height at current position with bilinear interpolation"""
+        h, w = heightmap.shape
+        map_x = self.x / terrain_scale + w / 2
+        map_z = self.z / terrain_scale + h / 2
         
-    def move(self, forward, right, up):
+        x0, z0 = int(map_x), int(map_z)
+        
+        if 0 <= x0 < w - 1 and 0 <= z0 < h - 1:
+            x1, z1 = x0 + 1, z0 + 1
+            tx = map_x - x0
+            tz = map_z - z0
+            
+            h00 = heightmap[z0, x0]
+            h10 = heightmap[z0, x1]
+            h01 = heightmap[z1, x0]
+            h11 = heightmap[z1, x1]
+            
+            h_interp = (h00 * (1-tx) * (1-tz) + 
+                       h10 * tx * (1-tz) + 
+                       h01 * (1-tx) * tz + 
+                       h11 * tx * tz)
+            
+            return h_interp * height_scale
+        return 0
+        
+    def move(self, forward, right, up, heightmap, terrain_scale, height_scale):
         yaw_rad = math.radians(self.yaw)
         pitch_rad = math.radians(self.pitch)
         
-        forward_x = -math.sin(yaw_rad) * math.cos(pitch_rad)
-        forward_y = math.sin(pitch_rad)
-        forward_z = -math.cos(yaw_rad) * math.cos(pitch_rad)
+        if self.flying:
+            forward_x = -math.sin(yaw_rad) * math.cos(pitch_rad)
+            forward_y = math.sin(pitch_rad)
+            forward_z = -math.cos(yaw_rad) * math.cos(pitch_rad)
+        else:
+            forward_x = -math.sin(yaw_rad)
+            forward_y = 0
+            forward_z = -math.cos(yaw_rad)
         
         right_x = math.cos(yaw_rad)
         right_z = -math.sin(yaw_rad)
         
-        up_x = math.sin(yaw_rad) * math.sin(pitch_rad)
-        up_y = math.cos(pitch_rad)
-        up_z = math.cos(yaw_rad) * math.sin(pitch_rad)
+        self.x += (forward * forward_x + right * right_x) * MOVE_SPEED
+        self.z += (forward * forward_z + right * right_z) * MOVE_SPEED
         
-        self.x += (forward * forward_x + right * right_x + up * up_x) * MOVE_SPEED
-        self.y += (forward * forward_y + up * up_y) * MOVE_SPEED
-        self.z += (forward * forward_z + right * right_z + up * up_z) * MOVE_SPEED
+        terrain_h = self.get_terrain_height(heightmap, terrain_scale, height_scale)
+        min_height = terrain_h + PLAYER_HEIGHT
+        
+        if self.flying:
+            self.y += up * MOVE_SPEED
+            
+            if up < 0:  # Pressing F (down)
+                if self.y <= min_height:
+                    self.y = min_height
+                    self.flying = False
+                    self.target_y = min_height
+            
+            if self.y < min_height:
+                self.y = min_height
+        else:
+            self.target_y = min_height
+            self.y += (self.target_y - self.y) * WALK_SMOOTH_SPEED
+            
+            if up > 0:  # Pressing H (up)
+                self.flying = True
+                self.y += up * MOVE_SPEED
         
     def apply(self, t):
         # Removed camera wobble - was too disorienting
@@ -942,7 +997,7 @@ def main():
         if keys[pygame.K_e]: camera.rotate_keyboard(-look_speed * 1.5, 0)
         if keys[pygame.K_r]: camera.rotate_keyboard(0, look_speed * 1.2)
         
-        camera.move(forward, right, up)
+        camera.move(forward, right, up, heights, TERRAIN_SCALE, HEIGHT_SCALE)
         
         current_chunk = camera.get_chunk_pos()
         if current_chunk != last_chunk:
