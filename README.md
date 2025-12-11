@@ -10,13 +10,14 @@
 
 ### 🎬 Demo Videos
 
-| Flight | Destructible Terrain | Normalized |
-|:---:|:---:|:---:|
-| [▶️ Flight Demo](andrew_maps_03.mp4) | [▶️ Bullets Demo](andrew_maps_04_bullets.mp4) | [▶️ Normalized Demo](andrew_maps_07_normalized.mp4) |
+| Flight | Destructible Terrain | Normalized | GAN Generation |
+|:---:|:---:|:---:|:---:|
+| [▶️ Flight Demo](andrew_maps_03.mp4) | [▶️ Bullets Demo](andrew_maps_04_bullets.mp4) | [▶️ Normalized Demo](andrew_maps_07_normalized.mp4) | [▶️ GAN Generation](andrew_maps_09_generation.mp4) |
 
-<video src="andrew_maps_03.mp4" width="32%" controls></video>
-<video src="andrew_maps_04_bullets.mp4" width="32%" controls></video>
-<video src="andrew_maps_07_normalized.mp4" width="32%" controls></video>
+<video src="andrew_maps_03.mp4" width="24%" controls></video>
+<video src="andrew_maps_04_bullets.mp4" width="24%" controls></video>
+<video src="andrew_maps_07_normalized.mp4" width="24%" controls></video>
+<video src="andrew_maps_09_generation.mp4" width="24%" controls></video>
 
 ---
 
@@ -61,7 +62,15 @@ python terrain_explorer_generator.py
 - **G** = Generate a NEW random map!
 - All other controls same as normal mode
 
-The generator creates procedural heightmaps using a trained GAN model. Each press of G creates a completely new world to explore!
+The generator uses Andrew's trained GAN (Generative Adversarial Network) to create procedural heightmaps. Each press of **G** spawns a completely new world with unique continents, mountains, and ocean basins!
+
+**HUD indicators (top-right):**
+- 🔵 Blue bar = Flying mode
+- 🟢 Green bar = Walking mode  
+- 🟡 Yellow bar = Altitude
+- 🟢 Small green square = Generator ready
+
+> **Note:** The current generator model (`generator_v1.pt`) was exported with hardcoded CUDA references, so it **requires an NVIDIA GPU**. On Mac/CPU it will fall back to loading `.npy` files. Ask Andrew for a CPU-compatible export!
 
 ---
 
@@ -71,9 +80,11 @@ A 3D terrain explorer with **dynamic chunk loading**, **jet flight physics**, an
 
 - 🗺️ **Dynamic Chunk Loading** - Terrain loads/unloads as you explore
 - ✈️ **Jet Flight Mode** - Full 360° aerobatics, do loops and barrel rolls!
+- 🚶 **Walk Mode** - Smoothly follow terrain with collision detection
 - 💥 **Destructible Terrain** - Fire projectiles to blast craters in the world
 - 🧭 **Live Minimap** - See the whole world and your position in real-time
 - 🌊 **Realistic Coloring** - Ocean depths, beaches, forests, mountains, snow peaks
+- 🎮 **HUD** - Mode indicator (FLY/WALK), altitude bar, generator status
 
 ## 🚀 Quick Start
 
@@ -94,13 +105,15 @@ python terrain_explorer.py
 ### Movement (Left Stick)
 | Key | Action |
 |-----|--------|
-| `W` / `↑` | Fly forward (in facing direction) |
-| `S` / `↓` | Fly backward |
+| `W` / `↑` | Move forward (in facing direction) |
+| `S` / `↓` | Move backward |
 | `A` / `←` | Strafe left |
 | `D` / `→` | Strafe right |
-| `H` | Fly UP |
-| `F` | Fly DOWN |
+| `H` | Fly UP (enters **Fly Mode** ✈️) |
+| `F` | Descend (touch ground → **Walk Mode** 🚶) |
 | `Alt` | Move faster |
+
+> **Fly vs Walk:** Press `H` to take off and fly freely. Press `F` to descend - when you touch the ground, you'll automatically switch to **Walk Mode** where the camera smoothly follows terrain height with full collision detection!
 
 ### Camera (Right Stick)
 | Key | Action |
@@ -155,17 +168,29 @@ EXPLOSION_RADIUS = 15     # Crater size
 FIRE_RATE = 0.33          # Shots per second (3)
 ```
 
-## 📁 Files
+## 📁 Versions Comparison
 
-- `terrain_explorer.py` - Main application
-- `terrain_explorer_psychedelic.py` - 🌈 Trippy version!
-- `terrain_explorer_generator.py` - 🧠 GAN generator integration!
+| Feature | `terrain_explorer.py` | `terrain_explorer_generator.py` | `terrain_explorer_psychedelic.py` |
+|---------|:---------------------:|:-------------------------------:|:---------------------------------:|
+| Explore `.npy` maps | ✅ | ✅ | ✅ |
+| Flying + Walking modes | ✅ | ✅ | ✅ |
+| Terrain collision | ✅ | ✅ | ✅ |
+| Destructible terrain | ✅ | ✅ | ✅ |
+| **Press G for new GAN map** | ❌ | ✅ | ❌ |
+| HUD (mode/altitude) | ❌ | ✅ | ❌ |
+| Psychedelic effects | ❌ | ❌ | ✅ |
+| Breathing terrain | ❌ | ❌ | ✅ |
+| Fractal growth | ❌ | ❌ | ✅ |
+| Requires PyTorch | ❌ | Optional | ❌ |
+
+### Files
+
+- `terrain_explorer.py` - **Base explorer** - solid, simple, no extra deps
+- `terrain_explorer_generator.py` - **GAN-powered** - press G for infinite new maps!
+- `terrain_explorer_psychedelic.py` - **Trippy mode** - rainbow everything + terrain growth
 - `demo.py` - Andrew's Gradio generator UI
 - `raw_map_*.npy` - Raw heightmap data
 - `requirements.txt` - Python dependencies
-- `screenshot.png` - Original preview
-- `screenshot_normalized.png` - Smoothed terrain preview
-- `screenshot_psychedelic.png` - Psychedelic preview
 
 ## 🎯 Tips
 

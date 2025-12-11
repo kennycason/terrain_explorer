@@ -45,8 +45,8 @@ BULLET_LIFETIME = 10.0
 EXPLOSION_RADIUS = 15
 FIRE_RATE = 0.33
 
-# Generator settings
-DEFAULT_MODEL_PATH = "runs/models/generator_v1.pt"
+# Generator settings - prefer CPU-patched version
+DEFAULT_MODEL_PATH = "generator_v1_cpu.pt"
 GENERATOR_DEVICE = None  # Will be set on init
 
 
@@ -62,9 +62,11 @@ if TORCH_AVAILABLE:
             print(f"  Generator device: {GENERATOR_DEVICE}")
             
             if not os.path.exists(model_path):
-                # Try alternate locations
+                # Try alternate locations - prefer CPU version if available
                 alt_paths = [
+                    "generator_v1_cpu.pt",  # CPU-patched version first
                     "generator_v1.pt",
+                    "runs/models/generator_v1_cpu.pt",
                     "runs/models/generator_v1.pt",
                     "../runs/models/generator_v1.pt",
                 ]
@@ -865,10 +867,27 @@ def main():
     if TORCH_AVAILABLE and TerrainGenerator is not None:
         try:
             generator = TerrainGenerator()
-            print("  Generator ready! Press G to generate new maps.")
+            # Test generation to catch CUDA errors early
+            print("  Testing generator...")
+            test_map = generator.generate(seed=1)
+            print(f"  ✅ Generator works! Output shape: {test_map.shape}")
+            print("  Press G to generate new maps!")
         except Exception as e:
-            print(f"  Generator not available: {e}")
-            print("  Will use existing .npy file instead.")
+            error_msg = str(e)
+            print(f"\n  ⚠️  Generator failed!")
+            print(f"  ─────────────────────────────────────────")
+            
+            if "CUDA" in error_msg or "cuda" in error_msg:
+                print("  The model was exported with hardcoded CUDA device references.")
+                print("  Your system doesn't have CUDA (NVIDIA GPU required).")
+                print("")
+                print("  💡 Ask Andrew to re-export with: device=context.device")
+                print("     instead of: device=torch.device('cuda')")
+            
+            print(f"\n  Raw error:\n  {error_msg[:500]}")
+            print(f"  ─────────────────────────────────────────")
+            print("  Will use existing .npy files instead.\n")
+            generator = None
     
     # Load initial heightmap
     npy_files = [f for f in os.listdir('.') if f.endswith('.npy') and 'raw_map' in f]
@@ -939,10 +958,13 @@ def main():
                     heights = new_heights
                     minimap = Minimap(heights)
                     
-                    # Reset camera
-                    h, w = heights.shape
-                    camera.x, camera.z = 0, 0
-                    camera.y = heights[h//2, w//2] * HEIGHT_SCALE + 30
+                    # Keep camera position, but ensure we're above terrain
+                    terrain_h = camera.get_terrain_height(heights, TERRAIN_SCALE, HEIGHT_SCALE)
+                    min_height = terrain_h + PLAYER_HEIGHT
+                    if camera.y < min_height:
+                        camera.y = min_height + 5  # Place slightly above terrain
+                        print(f"  (Adjusted height - was below new terrain)")
+                    
                     last_chunk = None
                     
                     print(f"  New map generated! (seed: {generation_seed})")
